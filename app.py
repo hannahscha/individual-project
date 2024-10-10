@@ -1,7 +1,7 @@
 # prompt: welcome user to the lab report generator and ask them to input the path to the experimental data set and print the first few rows
 
 import pandas as pd
-
+import streamlit as st
 print("Welcome to the Lab Report Generator!")
 
 # Ask the user to upload their file
