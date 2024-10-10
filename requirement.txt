@@ -1,0 +1,9 @@
+pandas
+numpy
+seaborn
+pillow
+reportlab
+streamlit
+maplot.lib
+io
+os
