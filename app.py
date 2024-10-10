@@ -10,10 +10,7 @@ uploaded_file  = st.file_uploader("Upload your experimental data set:")
 if uploaded_file is not None:
     # Get the file path from the uploaded file
     file_path = uploaded_file.name
-    # Do something with the file path, e.g., read the file
-    with uploaded_file as f:
-        data = f.read()
-        # Process the data
+
 try:
   df = pd.read_csv(file_path)
   print("\nHere are the first few rows of your data:")
