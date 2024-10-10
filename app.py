@@ -4,7 +4,6 @@ import pandas as pd
 
 print("Welcome to the Lab Report Generator!")
 
-file_path = input("Please enter the path to your experimental data set: ")
 # Ask the user to upload their file
 file_path = st.file_uploader("Upload your experimental data set:")
 
