@@ -5,11 +5,7 @@ import streamlit as st
 print("Welcome to the Lab Report Generator!")
 
 # Ask the user to upload their file
-uploaded_file  = st.file_uploader("Upload your experimental data set:")
-
-if uploaded_file is not None:
-    # Get the file path from the uploaded file
-    file_path = uploaded_file.name
+file_path  = st.file_uploader("Upload your experimental data set:")
 
 try:
   df = pd.read_csv(file_path)
