@@ -1,11 +1,10 @@
 # prompt: welcome user to the lab report generator and ask them to input the path to the experimental data set and print the first few rows
 
 import pandas as pd
-import streamlit as st
+
 print("Welcome to the Lab Report Generator!")
 
-# Ask the user to upload their file
-file_path  = st.file_uploader("Upload your experimental data set:")
+file_path = input("Please enter the path to your experimental data set: ")
 
 try:
   df = pd.read_csv(file_path)
@@ -277,9 +276,9 @@ while True:
             print("Invalid column number for x-axis. Please try again.")
     except ValueError:
         print("Invalid input. Please enter a number.")
-# Install necessary packages
 
 
+#Install necessary packages
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
@@ -328,29 +327,75 @@ def create_lab_report_with_calculations(df, charts_to_include, filename="lab_rep
     c.setFont("Helvetica", 16)
     c.drawString(1 * inch, height - 1 * inch, "Lab Report")
 
-    # Section: Calculated Columns
+
+    # Section: Calculated Columns and Descriptions
     y_position = height - 2 * inch
     c.setFont("Helvetica", 14)
-    c.drawString(1 * inch, y_position, "Calculated Data:")
+    c.drawString(1 * inch, y_position, "Calculated Data and Descriptions:")
 
     y_position -= 0.75 * inch
+
+    # List of calculated columns
     calculated_cols = [col for col in df.columns if 'Rate' in col or 'Efficiency' in col or 'Consumption' in col]
 
+    # Display each column with its description
+    c.setFont("Helvetica", 12)
+
     for col in calculated_cols:
-        if y_position < 1 * inch:
+        if 'Consumption' in col:
+            description = "Calculated by multiplying energy input by time."
+        elif 'Efficiency' in col:
+            description = "Calculated by dividing actual yield by theoretical yield and multiplying by 100."
+        elif 'Rate' in col:
+            description = "Calculated by dividing final moles of product by initial moles of reactant and multiplying by 100."
+        else:
+            description = "No description available."
+
+        # Draw the column name and description
+        c.drawString(1 * inch, y_position, f"{col}:")
+        y_position -= 0.2 * inch  # Move down for the description
+        wrapped_lines = wrap_text(description, ("Helvetica", 12), 6 * inch)  # Ensure wrapping text to fit the page
+        for line in wrapped_lines:
+            c.drawString(1 * inch, y_position, line)
+            y_position -= 0.2 * inch  # Space between lines in description
+
+        y_position -= 0.3 * inch  # Extra spacing after description
+
+    # Section: Calculated Table Values
+    c.setFont("Helvetica", 10)
+    c.drawString(1 * inch, y_position, "Data Table:")
+    y_position -= 0.75 * inch
+
+    # Table Header
+    header_x_positions = [1 * inch + i * 2 * inch for i in range(len(calculated_cols))]
+
+    c.setFont("Helvetica-Bold", 12)
+    for i, col in enumerate(calculated_cols):
+        c.drawString(header_x_positions[i], y_position, col)
+
+    y_position -= 0.5 * inch  # Move below header for table data
+
+    # Table Data (values)
+    c.setFont("Helvetica", 12)
+    for row_idx in range(len(df)):
+        if y_position < 1 * inch:  # If not enough space on the page, create a new page
             c.showPage()
             y_position = height - 1.5 * inch
 
-        c.setFont("Helvetica", 12)
-        wrapped_lines = wrap_text(f"{col}: {df[col].to_list()}", ("Helvetica", 12), width - 2 * inch)
-        for line in wrapped_lines:
-            c.drawString(1 * inch, y_position, line)
-            y_position -= 0.4 * inch
-            if y_position < 1 * inch:
-                c.showPage()
-                y_position = height - 1.5 * inch
+            # Redraw the table headers on the new page
+            c.setFont("Helvetica-Bold", 12)
+            for i, col in enumerate(calculated_cols):
+                c.drawString(header_x_positions[i], y_position, col)
+            y_position -= 0.5 * inch  # Move below header for table data
 
-    # Section: Summary Statistics
+        # Draw calculated column values for each row
+        for i, col in enumerate(calculated_cols):
+            c.setFont("Helvetica", 12)
+            c.drawString(header_x_positions[i], y_position, str(df[col].iloc[row_idx]))
+
+        y_position -= 0.4 * inch  # Space between rows of the table
+
+           # Section: Summary Statistics
     if y_position < 1 * inch:
         c.showPage()
         y_position = height - 1.5 * inch
@@ -358,24 +403,86 @@ def create_lab_report_with_calculations(df, charts_to_include, filename="lab_rep
     c.setFont("Helvetica", 14)
     c.drawString(1 * inch, y_position, "Summary Statistics:")
 
-    y_position -= 0.75 * inch
-    summary_stats = df.describe()
-    summary_str = summary_stats.to_string()
+    y_position -= 0.5 * inch  # Adjust position for the table
 
-    # Print summary statistics with three columns per line
-    for line in summary_str.split('\n'):
+    # Define statistics and corresponding labels (excluding count)
+    statistics_labels = {
+        'mean': 'Mean',
+        'std': 'Standard Deviation',
+        'min': 'Minimum',
+        '25%': '25th Percentile',
+        '50%': 'Median (50th Percentile)',
+        '75%': '75th Percentile',
+        'max': 'Maximum'
+    }
+
+    summary_stats = df.describe().transpose()  # Transpose for easier handling
+    stat_table = summary_stats[['mean', 'std', 'min', '25%', '50%', '75%', 'max']]
+
+    # Create header for the table
+    c.setFont("Helvetica-Bold", 12)
+    header_y_position = y_position
+
+    # Draw the second header only
+    c.drawString(1 * inch, header_y_position, "Statistic")
+    header_x_positions = [2 * inch + i * inch for i in range(len(statistics_labels))]
+
+    # Draw the sub-header for statistics
+    c.setFont("Helvetica", 10)
+    for i, stat in enumerate(statistics_labels.keys()):
+        c.drawString(header_x_positions[i], header_y_position + 0.2 * inch, stat)  # Draw statistic names
+
+    y_position -= 0.4 * inch  # Move down for data rows
+
+    # Draw the statistics table (first half)
+    c.setFont("Helvetica", 12)
+    for index, row in stat_table.iterrows():
         if y_position < 1 * inch:
             c.showPage()
             y_position = height - 1.5 * inch
 
-        c.setFont("Helvetica", 12)
-        wrapped_lines = wrap_text(line, ("Helvetica", 12), width - 2 * inch)
-        for wrapped_line in wrapped_lines:
-            c.drawString(1 * inch, y_position, wrapped_line)
-            y_position -= 0.4 * inch
-            if y_position < 1 * inch:
-                c.showPage()
-                y_position = height - 1.5 * inch
+        # Draw the statistic name
+        c.drawString(1 * inch, y_position, str(index))  # Draw statistic name
+
+        # Move down for the next row of values
+        y_position -= 0.2 * inch  # Space between rows
+
+        # Draw the values for this statistic
+        for i, value in enumerate(row):
+            # Prepare the value for drawing
+            value_str = f"{value:.2f}"  # Format the value to two decimal places
+            c.drawString(header_x_positions[i], y_position, value_str)
+
+        y_position -= 0.4 * inch  # Move to the next statistic
+
+    # Check if we can draw the last four statistics, if not, go to a new page
+    if y_position < 1 * inch:
+        c.showPage()
+        y_position = height - 1.5 * inch
+
+    # Draw the second half of the statistics table (last four statistics)
+    for index in stat_table.index[-4:]:  # Get the last four statistics
+        if y_position < 1 * inch:
+            c.showPage()
+            y_position = height - 1.5 * inch
+
+        row = stat_table.loc[index]
+
+        # Draw the statistic name
+        c.drawString(1 * inch, y_position, str(index))  # Draw statistic name
+
+        # Move down for the next row of values
+        y_position -= 0.2 * inch  # Space between rows
+
+        # Draw the values for this statistic
+        for i, value in enumerate(row):
+            # Prepare the value for drawing
+            value_str = f"{value:.2f}"  # Format the value to two decimal places
+            c.drawString(header_x_positions[i], y_position, value_str)
+
+        y_position -= 0.4 * inch  # Move to the next statistic
+
+    y_position -= 0.1 * inch  # Small gap between rows
 
     # Section: Highly Correlated Variables
     if y_position < 1 * inch:
@@ -401,7 +508,7 @@ def create_lab_report_with_calculations(df, charts_to_include, filename="lab_rep
                 c.drawString(1 * inch, y_position, f"{col1} and {col2}: Correlation = {corr_value:.2f}")
                 y_position -= 0.4 * inch
 
-    # Section: Charts
+       # Section: Charts
     if y_position < 1 * inch:
         c.showPage()
         y_position = height - 1.5 * inch
@@ -412,9 +519,13 @@ def create_lab_report_with_calculations(df, charts_to_include, filename="lab_rep
 
     # Iterate through the charts to include
     for i, chart_data in enumerate(charts_to_include):
-        if y_position < 1 * inch:
+        # Check if there's enough space for the chart
+        if y_position - 3 * inch < 1 * inch:  # Check if chart would overflow the page
             c.showPage()
             y_position = height - 1.5 * inch
+            c.setFont("Helvetica", 14)
+            c.drawString(1 * inch, y_position, "Charts:")
+            y_position -= 0.75 * inch  # Move down for the charts
 
         # Convert BytesIO to PIL Image and save to temporary file
         img = Image.open(chart_data)  # Open the BytesIO object directly
@@ -422,12 +533,12 @@ def create_lab_report_with_calculations(df, charts_to_include, filename="lab_rep
         img.save(temp_image_path, format="PNG")  # Save the image as PNG
 
         # Draw the chart using the temporary file path
-        c.drawImage(temp_image_path, 1 * inch, y_position - 3 * inch, width=5 * inch, height=3 * inch, mask='auto')
+        c.drawImage(temp_image_path, 1 * inch, y_position - 3 * inch, width=6 * inch, height=4 * inch, mask='auto')
         y_position -= 4.5 * inch  # Move down for the next chart
 
         # Remove the temporary file
-        import os
         os.remove(temp_image_path)  # Remove temporary files after use
+
 
     # Save the PDF
     c.save()
